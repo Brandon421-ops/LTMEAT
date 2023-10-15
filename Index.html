@@ -1,0 +1,487 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- HTML Meta Tags -->
+    <title>LTMEAT for Chrome</title>
+    <meta
+      name="description"
+      content="Literally The Meatiest Exploit of All Time - Disable managed admin extensions on Chrome v112."
+    />
+
+    <!-- Twitter Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="twitter:domain" content="ltmeat.bypassi.com" />
+    <meta property="twitter:url" content="https://ltmeat.bypassi.com" />
+    <meta name="twitter:title" content="LTMEAT for Chrome" />
+    <meta
+      name="twitter:description"
+      content="Literally The Meatiest Exploit of All Time - Disable managed admin extensions on Chrome v112."
+    />
+    <meta
+      name="twitter:image"
+      content="https://ltmeat.bypassi.com/img/gru.png"
+    />
+
+    <!-- Meta Tags Generated via https://www.opengraph.xyz -->
+    <title>LTMEAT for Chrome</title>
+    <link rel="icon" href="/img/icon.png" />
+    <link rel="stylesheet" href="/style.css" />
+    <script>
+      onload = () => {
+        document.querySelector("u").onclick = () => {
+          alert(
+            `Your mind is not your friend again\nIt takes you by the hand\nAnd leaves you nowhere`
+          );
+        };
+        if (document.referrer.includes("reddit.com")) {
+          document.querySelector(".sysadmins").style.display = "block";
+        }
+      };
+    </script>
+  </head>
+  <body>
+    <div class="header">
+      <h1 class="title">LTMEAT</h1>
+      <h3>Literally The Meatiest Exploit of All Time</h3>
+    </div>
+    <div class="sysadmins">
+      <p>
+        Hello sysadmins! My Reddit account is bigminecraftgamer 💀 love you guys
+      </p>
+    </div>
+    <div class="dedication">
+      <p>
+        Dedicated to <u>ULTRABLUE</u>, a fellow Mercury Workshop member who I
+        wish I'd gotten to know more.
+      </p>
+    </div>
+    <div class="section">
+      <p class="text">
+        <b>This writeup was published on May 2nd, 2023, noon UTC.</b>
+      </p>
+      <p class="text">
+        The night I found LTBEEF, 231 days ago, I was hyped. I shared it, went
+        to sleep, and woke up to dozens of pings. Disable an admin extension so
+        easily? It was unheard of. It spread across the internet, got sysadmins
+        in a scramble, and took an absurdly long time to get patched. Everything
+        a good exploit should do.
+      </p>
+      <p class="text">
+        I thought LTBEEF was as easy as it got. I thought Chrome had gotten too
+        secure to have any more simple exploits. I was wrong.
+      </p>
+      <p>
+        <a href="#description" class="button"> I want to keep reading </a>
+        <a href="#exploit" class="button"> Just give me the new exploit </a>
+      </p>
+    </div>
+    <div class="section">
+      <p class="title" id="description">Introduction</p>
+      <p class="text">
+        LTBEEF truly disabled extensions. Unsurprisingly, it's really hard to
+        fully disable an extension when you aren't supposed to be able to.
+        Admin-installed extensions can only be disabled by other admin-installed
+        extensions or components that use the
+        <code>chrome.management</code> API. The Chrome Web Store had this
+        permission and was treated like a normal webpage, which was the weakest
+        link that LTBEEF took advantage of. There was also a variation for
+        Inspect Element users which involved directly running code on a
+        long-forgotten component extension. So truly disabling extensions is
+        really hard.
+      </p>
+      <p class="text">
+        In fact, LTMEAT (the new exploit I found) doesn't fully disable
+        extensions.
+      </p>
+      <p class="text">
+        <i>Well, what else can you do?</i> one may ask.
+        <i>If the extension isn't disabled, that means it's running, right?</i>
+      </p>
+      <p class="text">
+        To answer that question, we have to get into Chrome's process
+        management, extension runtime, internal debug URLs, and more. Let's get
+        started.
+      </p>
+    </div>
+    <div class="section">
+      <p class="title">Hanging and killing (kid-friendly material, trust me)</p>
+      <p class="text">
+        JavaScript is cool. The web runs on JavaScript, in case you weren't
+        aware. That means, of course, that Chrome does too. The people working
+        over at Google HQ (yuck, California) and other web browser devs have to
+        worry about limiting JavaScript. For example, what do you do when a
+        website uses too much of it?
+      </p>
+      <p class="text">
+        Well, browsers like Chrome don't want to lag out the entire browser and
+        definitely not its user's whole computer, so they give each tab a
+        certain amount of memory. When it's working at full blast, the browser
+        will
+        <b>hang</b> the site. This means that the page will become unresponsive
+        as it waits for the JavaScript to finish. You can try this yourself by
+        running an infinite loop on any page:
+      </p>
+      <code>for(;;)1</code>
+      <p class="text">
+        Chrome also limits tabs in terms of actual memory used. Once JavaScript
+        starts using more memory than Chrome can afford, the tab will be
+        <b>killed</b>. It's not loading, there's no chance of it being
+        responsive again--it's just dead. This kind of behavior can also be
+        triggered by a <b>crash</b>, which is self-explanatory and has a similar
+        effect. You can see this for yourself by running code to create an Array
+        with 4,294,967,295 elements in it, as seen below. Talk about overkill!
+        (pun intended)
+      </p>
+      <code>[...Array(2**32-1)]</code>
+      <img src="/img/crash.png" />
+      <p class="text">
+        To recap, hanging is when a tab freezes and becomes unresponsive because
+        it's actively running intense JavaScript. Killing is when a tab is
+        crashed because the browser decides that it's using far too much memory.
+      </p>
+    </div>
+    <div class="section">
+      <p class="title">Diseases and handshakes</p>
+      <p class="text">
+        Time for a thinking activity (that sounds Orwellian, lol). Imagine every
+        tab on your computer as a person. These people (tabs) are all at a party
+        or some other public gathering.
+      </p>
+      <p class="text">
+        Normally, tabs are completely seperated. But when a tab opens a tab with
+        its same domain, those two tabs share memory. We can imagine this by
+        imagining two people at the party shaking hands. When one of them gets
+        sick, the other also gets sick. When one gets electrocuted, the other
+        also gets electrocuted, and so on. You can simulate this by running the
+        following code on a page...
+      </p>
+      <code>open(location.href)</code>
+      <p class="text">
+        ...then using the hang or kill codes (scroll up) on either page. When it
+        crashes or freezes, the other tab will be taken with it. This is because
+        they're shaking hands, or in technical terms, because they are using the
+        same memory process in Chrome.
+      </p>
+      <img src="/img/party.png" />
+      <p class="text">
+        <i>So why does any of this matter?</i> you may wonder.
+        <i>Why do I need to know so much about how Chrome freezes its tabs?</i>
+      </p>
+      <p class="text">Finally, it's time to get to the point of the exploit.</p>
+    </div>
+    <div class="section">
+      <p class="title">The deadly group hug</p>
+      <p class="text">
+        This exploit stops extensions (including admin-enforced ones such as web
+        filters) from working until a Chromebook is restarted. But to understand
+        how, we need to talk about a little quirk in the tab party situation.
+      </p>
+      <p class="text">
+        Chrome Extensions are made of a group of files. So what?
+        <b>
+          Chrome sees these files as tabs, and it runs of them in the same
+          process, sharing memory.
+        </b>
+        This can be imagined as a group hug. When one person is electrocuted,
+        they all are. When one tab crashes, the whole extension crashes.
+      </p>
+      <img src="/img/hug.png" />
+      <p class="text">
+        <i>Ah,</i> exclaims the average Joe.
+        <i>
+          I get the point. You're going to kill one of the extension tabs. Then
+          the extension will go away. I'm so smart!
+        </i>
+      </p>
+      <p class="text">
+        Come on, Google isn't <i>that</i> stupid. When an admin extension
+        crashes, it recovers within three seconds or so. There's no good way to
+        automate crashing it, and it just lags your computer insanely hard when
+        you try. Plus, we want a semi-permanent exploit.
+      </p>
+      <p class="text">
+        <i>Oh,</i> he says.
+        <i>
+          Then we just hang it. I see it now! You hang one, and the rest of the
+          files don't run any scripts.
+        </i>
+      </p>
+      <p class="text">
+        Yeah, that's 100% correct. When you hang an extension page, the whole
+        extension stops functioning. But there is an issue. Web filter
+        extensions like GoGuardian and Securly work by using the
+        <code>chrome.webRequest</code> API, where they add listeners to every
+        request you send.
+      </p>
+      <p class="text">
+        This means that your browser waits for those extensions to respond
+        before it loads any website. Since the extensions are hanging, they
+        can't respond. And you can't load any websites.
+      </p>
+      <p class="text">
+        While trying to fix this issue, I accidentally stumbled upon a way to
+        basically stop the extension's entire runtime until a restart.
+      </p>
+      <p class="text">
+        Before I get into this, I'd like to re-state my absolute astonishment
+        that Chrome still has bugs like this in 2023, and that nobody else has
+        noticed them. This should have been discovered and patched in 2018 or
+        2019 at the latest.
+      </p>
+    </div>
+    <div class="section">
+      <p class="title">Chrome error in your favor! Collect $200.</p>
+      <p class="text">
+        Three Chrome "features" put together make this exploit insanely
+        convenient.
+      </p>
+      <p class="text">
+        <b>FEATURE ONE:</b> There is a small gap between when an extension
+        starts loading and its pages start initializing. So, in theory,
+        <b>if you managed to restart an extension and instantly hang it</b>,
+        none of its pages would load, meaning none of its listeners would load.
+        Then Chrome wouldn't try to communicate with it and you could actually
+        browse with web filter extensions disabled.
+      </p>
+      <p class="text">
+        <b>FEATURE TWO:</b> An extension's background page
+        (<code>_generated_background_page.html</code>) ties everything together
+        and is loaded first. If you hang an extension page before the background
+        page has loaded, all the other parts of the extension won't be able to
+        load either.
+      </p>
+      <img src="/img/chart.png" />
+      <p class="text">
+        And in fact, this means you can even close the tab you messed with (at
+        the top), since the background tab stays frozen and keeps the whole
+        extension broken.
+      </p>
+      <p class="text">
+        For
+        <a
+          href="https://developer.chrome.com/docs/extensions/mv3/intro/"
+          target="_blank"
+          >Manifest V3 extensions</a
+        >, though, you'll want to keep the tampered page open. But MV3 is
+        extremely rare in managed environments because nobody cares about what
+        Google thinks anymore (W).
+      </p>
+      <img src="/img/chad.png" />
+
+      <p class="text">
+        <i
+          >That's great! But how do I hang an extension? I don't have Inspect
+          Element allowed on my Chromebook.</i
+        >
+      </p>
+      <p class="text">
+        <b>
+          "FEATURE" THREE: There are literally built-in ways to hang and kill
+          any page.
+        </b>
+        No joke.
+      </p>
+      <p class="text">
+        <code>chrome://kill</code> and <code>chrome://hang</code> can be entered
+        into the URL bar of any website. Chrome literally does not care whether
+        you're running them on managed extensions. Either they neglected it or
+        assumed that it wouldn't cause any damage. I literally do not know what
+        the software engineers are doing at their headquarters.
+      </p>
+      <p class="text">
+        ChromeOS has supported enterprise enrollment for six years, and stuff
+        like this is still being found.
+      </p>
+      <p class="text">
+        Anyway, exploit time! Aren't you glad you read all that extra stuff I
+        had to say?
+      </p>
+    </div>
+    <div class="section">
+      <p class="title" id="exploit">The meaty stuff (instructions)</p>
+      <p>
+        <a href="/alt/1.txt" target="_blank" class="button">
+          Alternate Method #1 (easier)
+        </a>
+      </p>
+      <p class="text">
+        The method linked above involves less spamming. It doesn't work for all
+        extensions, but it should work for your filter. However, it's also
+        easier to block. <b> The original instructions are shown below. </b>
+      </p>
+      <p class="text">
+        <b>STEP ONE:</b> Find a page belonging to the extension you want to
+        disable. You'll need your extension's 32-character ID to continue. If
+        you're trying to bypass stuff, try finding it in a
+        <a href="/ids.txt" target="_blank">filter extension ID list</a>. For
+        further help, check the <a href="#help">help section</a>.
+      </p>
+      <p class="text">
+        Once you have the ID, you'll be guaranteed to get to a working
+        <code>chrome-extension://</code> page by visiting the manifest file:
+        (with your extension's ID substituted in, of course)
+      </p>
+      <code>chrome-extension://extension_id_here_please/manifest.json</code>
+      <p class="text">
+        Some extensions' pages are much easier to access directly (like their
+        options or block pages). All that's important is that you open a page
+        belonging to the extension you want to disable.
+      </p>
+      <p class="text">
+        <b>STEP TWO:</b> Bookmark the extension page (bookmark A) if you wish.
+        Then, bookmark <code>chrome://kill</code> (B) and
+        <code>chrome://hang</code> (C).
+      </p>
+      <p class="text">
+        <b>STEP THREE:</b> While on the extension page (A), click the
+        <code>chrome://kill</code> bookmark (B). The page should crash. You
+        should already have the next step prepared.
+      </p>
+      <p class="text">
+        <b>STEP FOUR:</b> Instantly start spamming
+        <code>chrome://hang</code> (bookmark C) and quickly
+        <b>reload the page while spamming</b> using the refresh key on your
+        keyboard (or less ideally, ctrl+R). You should have reloaded within one
+        or two seconds of killing the page.
+      </p>
+      <p class="text">A timeline of the exploit can be seen below:</p>
+      <img src="/img/line.png" />
+      <p class="text">
+        If you are unable to visit the extension page (bookmark A) after trying
+        the exploit, then LTMEAT worked!
+        <i>Please</i> read the <a href="#help">help section</a> if you had an
+        issue (for example, if no sites seem to load). You can restore
+        extensions by signing out and back into your Chromebook.
+      </p>
+      <img src="/img/gru.png" />
+      <p class="text">
+        Note that the steps above are by no means the only way to perform the
+        exploit. I'll add the first alternate set of instructions on May 11th
+        for people affected by patches.
+      </p>
+      <p>
+        <a
+          href="https://buymeacoffee.com/bypassi"
+          target="_blank"
+          class="button"
+        >
+          Send me money
+        </a>
+      </p>
+    </div>
+    <div class="section">
+      <p class="title" id="help">"Help me! I'm an idiot!"</p>
+      <p class="text">
+        Turns out that I had far too much faith in society when making this
+        page. Some of you skids out there are really, <i>really</i> stupid and
+        also can't read. So here are the answers to some commonly asked
+        questions.
+      </p>
+      <p class="text">
+        <b>How do I get an extension ID?</b>
+      </p>
+      <p class="text">
+        Okay, fair. Extension IDs are leaked in a couple of places. Generally,
+        the best way to get them is to go to extension settings and copy the URL
+        query value as shown in the video below:
+      </p>
+      <video controls>
+        <source src="/img/vid.webm" type="video/webm" />
+      </video>
+      <p class="text">
+        If you're actually competent in dealing with JSON, you can easily find
+        IDs in
+        <code>chrome://extensions-internals</code> too, as well as another
+        similar URL.
+      </p>
+      <p class="text">
+        <b>It says blocked by client?</b>
+      </p>
+      <p class="text">
+        That's the message you get when you try to visit an a page belonging to
+        an extension that doesn't exist. The error message
+        (<code>ERR_BLOCKED_BY_CLIENT</code>) is extremely misleading. Nobody
+        blocked it--you just need to find the right extension ID (see above).
+      </p>
+      <p class="text">
+        If you got this because you tried to visit the
+        <code>extension_id_here_please</code> example URL, you should be
+        extremely ashamed of yourself. Please change and grow as a person.
+      </p>
+      <p class="text">
+        <b>I don't have a bookmarks bar!!!!</b>
+      </p>
+      <p class="text">
+        First, try running ctrl+shift+B. If that doesn't work, go to
+        <code>chrome://settings</code> and turn on the "home button" feature,
+        then set it to <code>chrome://hang</code>. A home icon should show up to
+        the right of your refresh icon in the top left. Use that instead of
+        bookmark C.
+      </p>
+      <p class="text">
+        If that doesn't work, try the
+        <a href="https://ltmeat.bypassi.com/alt/1.txt" target="_blank"
+          >first alternate method</a
+        >. It should work for most web filters, but I can't guarantee that it
+        can disable every extension. I'll try to add more alternate methods
+        soon.
+      </p>
+      <p class="text">
+        <b>I disabled an extension but now I can't load websites!</b>
+      </p>
+      <p class="text">
+        If you actually just read the writeup, you'd know that this would happen
+        if the extension's background page loaded and its listeners were already
+        initialized before you used <code>chrome://hang</code>.
+      </p>
+      <p class="text">
+        Anyway, no listeners means <b>you were too slow</b>. Either you waited
+        more than three seconds between bookmark B and reloading the page, or
+        you weren't spamming bookmark C fast enough. The most reliable fix for
+        this is to just restart your computer and try again. Try to match the
+        pace of the gif below: (note the reload)
+      </p>
+      <img src="/img/abc.gif" />
+      <p class="text">
+        Note how the name of the extension doesn't show in the URL bar after the
+        start, because I didn't let the extension (and thus its listeners) load
+        between bookmarks B and C. Again, the
+        <a href="/img/line.png" target="_blank">timeline</a> is a good
+        visualization of this.
+      </p>
+      <p class="text">
+        <b>The bookmarks don't do anything when I click them!</b>
+      </p>
+      <p class="text">
+        Might be admin-blocked. Either be smart enough to figure out another
+        way, or check this site daily to see if new alternate instructions have
+        been posted.
+      </p>
+      <p class="text">
+        <b>I disabled the extension, why is some stuff still blocked?</b>
+      </p>
+      <p class="text">
+        I have bad news for you... not all filters are Chrome Extensions. And
+        again, make sure the extension pages (like bookmark A) are frozen before
+        you assume that your skiddy self successfully did the exploit.
+      </p>
+      <p class="text">
+        Need more help? Go annoy the people in
+        <a href="https://discord.gg/unblock" target="_blank">Titanium Network</a
+        >.
+      </p>
+    </div>
+    <div class="section">
+      <div class="title">Contact me</div>
+      <p>Bypassi#7037</p>
+      <p>contact@bypassi.com</p>
+      <p class="text">
+        I'm happy to answer questions, whether you're a sysadmin, student, or
+        Chrome dev.
+      </p>
+    </div>
+  </body>
+</html>
